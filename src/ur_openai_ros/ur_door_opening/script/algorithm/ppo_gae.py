@@ -5,7 +5,7 @@ import tensorflow as tf
 from sklearn.utils import shuffle
 
 class PPOGAEAgent(object): 
-    def __init__(self, obs_dim, n_act, clip_range=0.2, epochs=10, policy_lr=1e-3, value_lr=1e-3, hdim=64, max_std=1.0, seed=0):
+    def __init__(self, obs_dim, n_act, clip_range=0.2, epochs=10, policy_lr=1e-4, value_lr=1e-4, hdim=64, max_std=1.0, seed=0):
 #    def __init__(self, obs_dim, n_act, clip_range=0.2, epochs=10, policy_lr=3e-3, value_lr=7e-4, hdim=64, max_std=1.0, seed=0):
         
         self.seed=seed
@@ -25,8 +25,8 @@ class PPOGAEAgent(object):
         self._init_session()
         self.counter = 0
 
-        # load the parameters 
-        self.saver.restore(self.sess, './results/ppo_with_gae_model-40')
+        # load the parameters
+        #self.saver.restore(self.sess, './results/ppo_with_gae_model-300')
 
     def _build_graph(self):
         self.g = tf.Graph()
@@ -155,7 +155,7 @@ class PPOGAEAgent(object):
     def get_action(self, obs): # SAMPLE FROM POLICY
         feed_dict = {self.obs_ph: obs}
         sampled_action = self.sess.run(self.sample_action,feed_dict=feed_dict)
-        return sampled_action[0] / 100 # 100(~20200904), 300(20200905~), 500(~20200909), 2000(20200909~), 4000(20200910~)
+        return sampled_action[0] / 3 # 100(~20200904), 300(20200905~), 500(~20200909), 2000(20200909~), 4000(20200910~)
 # /10:   [action]', array([-0.01992016,  0.10500866,  0.00853405,  0.02726892, -0.12092558, 0.02108609])
 # /500:   [action]', array([0.0010571,  -0.00022959,  -0.00092911,  -0.00055518, -0.0012934, -0.001190])  -> Maxdelta force(6.5, 1.8, 16.7), torque(0.65, 4.4, 0.17)
 # /1000: [action]', array([-1.9920163e-04,  1.0500867e-03,  8.5340682e-05,  2.7268915e-04, -1.2092555e-03,  2.1086067e-04])
@@ -208,19 +208,19 @@ class PPOGAEAgent(object):
         elif self.counter == 300 / n:
             self.saver.save(self.sess, './results/ppo_with_gae_model', global_step=300 / n)
         elif self.counter == 400 / n:
-            self.saver.save(self.sess, './results/ppo_with_gae_model', global_step=400)
-        elif self.counter == 500:
-            self.saver.save(self.sess, './results/ppo_with_gae_model', global_step=500)
-        elif self.counter == 600:
-            self.saver.save(self.sess, './results/ppo_with_gae_model', global_step=600)
-        elif self.counter == 700:
-            self.saver.save(self.sess, './results/ppo_with_gae_model', global_step=700)
-        elif self.counter == 800:
-            self.saver.save(self.sess, './results/ppo_with_gae_model', global_step=800)
-        elif self.counter == 900:
-            self.saver.save(self.sess, './results/ppo_with_gae_model', global_step=900)
-        elif self.counter == 1000:
-            self.saver.save(self.sess, './results/ppo_with_gae_model', global_step=1000)
+            self.saver.save(self.sess, './results/ppo_with_gae_model', global_step=400 / n)
+        elif self.counter == 500 / n:
+            self.saver.save(self.sess, './results/ppo_with_gae_model', global_step=500 / n)
+        elif self.counter == 600 / n:
+            self.saver.save(self.sess, './results/ppo_with_gae_model', global_step=600 / n)
+        elif self.counter == 700 / n:
+            self.saver.save(self.sess, './results/ppo_with_gae_model', global_step=700 / n)
+        elif self.counter == 800 / n:
+            self.saver.save(self.sess, './results/ppo_with_gae_model', global_step=800 / n)
+        elif self.counter == 900 / n:
+            self.saver.save(self.sess, './results/ppo_with_gae_model', global_step=900 / n)
+        elif self.counter == 1000 / n:
+            self.saver.save(self.sess, './results/ppo_with_gae_model', global_step=1000 / n)
 
         return policy_loss, value_loss, kl, entropy
     

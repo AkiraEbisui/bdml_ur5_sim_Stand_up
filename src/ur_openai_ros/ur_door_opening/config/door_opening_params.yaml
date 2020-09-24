@@ -48,12 +48,19 @@ observations: # Observations you want to use for the learning
 joint_names: ['shoulder_link', 'upper_arm_link', 'forearm_link', 'wrist_1_link', 'wrist_2_link', 'wrist_3_link']
 
 init_joint_pose0:
-  shp: 0.42113088235807705
-  shl: -2.499894322410209
-  elb: 2.465940488809082
-  wr1: 0.019181638229937903
-  wr2: 0.3869327391356494
-  wr3: -1.561166435896597
+  shp: 1.55
+  shl: -1.81
+  elb: 2.26
+  wr1: -2.02
+  wr2: -1.57
+  wr3: 3.11
+
+#  shp: 0.42113088235807705
+#  shl: -2.499894322410209
+#  elb: 2.465940488809082
+#  wr1: 0.019181638229937903
+#  wr2: 0.3869327391356494
+#  wr3: -1.561166435896597
 
 init_joint_pose1:
   shp: 1.0936292324911197
@@ -134,13 +141,13 @@ joint_velocity_limits_array:
   wr3_min: -1.0
 
 
-#cartesian_limits:
-#  x_max: 1.0
-#  x_min: 1.0
-#  y_max: -1.0
-#  y_min: -1.0
-#  z_max: -1.0
-#  z_min: -1.0
+cartesian_limits:
+  x_max: 0.2
+  x_min: -0.54
+  y_max: 0.7
+  y_min: -0.25
+  z_max: 3
+  z_min: 0.15
 
 episode_done_criteria:
   - panel_10deg

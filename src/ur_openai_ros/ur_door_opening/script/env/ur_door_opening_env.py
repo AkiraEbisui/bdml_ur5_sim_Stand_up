@@ -150,6 +150,7 @@ class URSimDoorOpening(robot_gazebo_env_goal.RobotGazeboEnv):
         l_flw_value1 = rospy.get_param("/init_grp_pose1/l_follower")
         r_spr_value1 = rospy.get_param("/init_grp_pose1/r_spring")
         l_spr_value1 = rospy.get_param("/init_grp_pose1/l_spring")
+        self.init_grp_pose1 = [r_drv_value1, l_drv_value1, r_flw_value1, l_flw_value1, r_spr_value1, l_spr_value1]
 
         r_drv_value2 = rospy.get_param("/init_grp_pose2/r_drive")
         l_drv_value2 = rospy.get_param("/init_grp_pose2/l_drive")
@@ -157,9 +158,15 @@ class URSimDoorOpening(robot_gazebo_env_goal.RobotGazeboEnv):
         l_flw_value2 = rospy.get_param("/init_grp_pose2/l_follower")
         r_spr_value2 = rospy.get_param("/init_grp_pose2/r_spring")
         l_spr_value2 = rospy.get_param("/init_grp_pose2/l_spring")
-
-        self.init_grp_pose1 = [r_drv_value1, l_drv_value1, r_flw_value1, l_flw_value1, r_spr_value1, l_spr_value1]
         self.init_grp_pose2 = [r_drv_value2, l_drv_value2, r_flw_value2, l_flw_value2, r_spr_value2, l_spr_value2]
+
+        # cartesian_limits
+        self.x_max = rospy.get_param("/cartesian_limits/x_max")
+        self.x_min = rospy.get_param("/cartesian_limits/x_min")
+        self.y_max = rospy.get_param("/cartesian_limits/y_max")
+        self.y_min = rospy.get_param("/cartesian_limits/y_min")
+        self.z_max = rospy.get_param("/cartesian_limits/z_max")
+        self.z_min = rospy.get_param("/cartesian_limits/z_min")
 
         # Fill in the Done Episode Criteria list
         self.episode_done_criteria = rospy.get_param("/episode_done_criteria")
@@ -284,11 +291,6 @@ class URSimDoorOpening(robot_gazebo_env_goal.RobotGazeboEnv):
         self._ctrl_type = 'traj_vel'
         return SetBoolResponse(True, "_set_traj_vel_ctrl")  
 
-#    def _set_grp_ctrl(self, req):
-#        rospy.wait_for_service('set_gripper_controller')
-#        self._ctrl_conn.start_controllers(self.gripper_controller)    
-#        return SetBoolResponse(True, "_set_grp_ctrl")  
-
     # A function to initialize the random generator
     def _seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -296,12 +298,9 @@ class URSimDoorOpening(robot_gazebo_env_goal.RobotGazeboEnv):
         
     def link_state_callback(self, msg):
         self.link_state = msg
-        self.end_effector = self.link_state.pose[12]
+        self.end_effector = self.link_state.pose[7]
         self.imu_link = self.link_state.pose[5]
         self.door = self.link_state.pose[2]
-
-#    def target_point_callback(self, msg):
-#        self.target_point = msg
 
     def check_all_systems_ready(self):
         """
@@ -328,6 +327,14 @@ class URSimDoorOpening(robot_gazebo_env_goal.RobotGazeboEnv):
                 rospy.logdebug("Reading link_states not ready yet, retrying==>"+str(e))
 
         rospy.logdebug("ALL SYSTEMS READY")
+
+    def check_cartesian_limits(self, action):
+        ee_xyz = Vector3()
+        ee_xyz = self.get_xyz(action)
+        if self.x_min < ee_xyz[0] and ee_xyz[0] < self.x_max and self.y_min < ee_xyz[1] and ee_xyz[1] < self.y_max and self.z_min < ee_xyz[2] and ee_xyz[2] < self.z_max:
+            return True
+        else:
+            return False
 
     def get_xyz(self, q):
         """Get x,y,z coordinates 
@@ -423,22 +430,20 @@ class URSimDoorOpening(robot_gazebo_env_goal.RobotGazeboEnv):
         joint_states = self.joints_state
         self.force = self.wrench_stamped.wrench.force
         self.torque = self.wrench_stamped.wrench.torque
-#        print("[force]", self.force.x, self.force.y, self.force.z)
-#        print("[torque]", self.torque.x, self.torque.y, self.torque.z)
 
         shp_joint_ang = joint_states.position[2]
         shl_joint_ang = joint_states.position[1]
         elb_joint_ang = joint_states.position[0]
-        wr1_joint_ang = joint_states.position[9]
-        wr2_joint_ang = joint_states.position[10]
-        wr3_joint_ang = joint_states.position[11]
+        wr1_joint_ang = joint_states.position[3]
+        wr2_joint_ang = joint_states.position[4]
+        wr3_joint_ang = joint_states.position[5]
 
         shp_joint_vel = joint_states.velocity[2]
         shl_joint_vel = joint_states.velocity[1]
         elb_joint_vel = joint_states.velocity[0]
-        wr1_joint_vel = joint_states.velocity[9]
-        wr2_joint_vel = joint_states.velocity[10]
-        wr3_joint_vel = joint_states.velocity[11]
+        wr1_joint_vel = joint_states.velocity[3]
+        wr2_joint_vel = joint_states.velocity[4]
+        wr3_joint_vel = joint_states.velocity[5]
 
         q = [shp_joint_ang, shl_joint_ang, elb_joint_ang, wr1_joint_ang, wr2_joint_ang, wr3_joint_ang]
         eef_x, eef_y, eef_z = self.get_xyz(q)
@@ -536,14 +541,18 @@ class URSimDoorOpening(robot_gazebo_env_goal.RobotGazeboEnv):
         arr_init_g_pos1 = np.array(init_g_pos1, dtype='float32')
 
         jointtrajpub = JointTrajPub()
+        '''
         for update in range(500):
         	jointtrajpub.GrpCommand(arr_init_g_pos1)
         time.sleep(2)
         for update in range(1000):
         	jointtrajpub.jointTrajectoryCommand(self.arr_init_pos1)
         time.sleep(0.3)
+        '''
+
         for update in range(1000):
         	jointtrajpub.jointTrajectoryCommand(self.arr_init_pos0)
+                observation = self.get_observations()
         time.sleep(0.3)
 
         # 0st: We pause the Simulator
@@ -568,8 +577,6 @@ class URSimDoorOpening(robot_gazebo_env_goal.RobotGazeboEnv):
         rospy.logdebug("set_init_pose init variable...>>>" + str(self.init_joint_pose2))
 
         # We save that position as the current joint desired position
-#	print("[init_joint_pose1]:", self.init_joint_pose1, type(self.init_joint_pose1))
-
         init_pos2 = self.init_joints_pose(self.init_joint_pose2)
         self.arr_init_pos2 = np.array(init_pos2, dtype='float32')
         after_rotate = self.init_joints_pose(self.after_rotate)
@@ -604,16 +611,6 @@ class URSimDoorOpening(robot_gazebo_env_goal.RobotGazeboEnv):
         rospy.logdebug("Restore Gravity...")
         self._gz_conn.adjust_gravity()
 
-        for update in range(1000):
-        	jointtrajpub.jointTrajectoryCommand(self.arr_init_pos1)
-        time.sleep(0.3)
-        for update in range(1000):
-        	jointtrajpub.jointTrajectoryCommand(self.arr_init_pos2)
-        time.sleep(0.3)
-        for update in range(50):
-        	jointtrajpub.GrpCommand(arr_init_g_pos2)
-        time.sleep(2)
-
         # 7th: pauses simulation
         rospy.logdebug("Pause SIM...")
         self._gz_conn.pauseSim()
@@ -621,7 +618,6 @@ class URSimDoorOpening(robot_gazebo_env_goal.RobotGazeboEnv):
         # 8th: Get the State Discrete Stringuified version of the observations
         rospy.logdebug("get_observations...")
        	observation = self.get_observations()
-#        print("[observations]", observation)
 
         return observation
 
@@ -663,59 +659,12 @@ class URSimDoorOpening(robot_gazebo_env_goal.RobotGazeboEnv):
         # Act
         self._gz_conn.unpauseSim()
 
-#	self.counter = self.counter + 1
-#	print("counter", self.counter)
-#	if self.counter < 50:
-#		action = self.arr_after_rotate
-#		print("after_rotate")
-#	else:
-#		action = self.arr_after_pull
-#		print("after_pull")
-
-#	if self.counter > 99:
-#		self.counter = 0
-
-        action = action + self.arr_init_pos2
-        self._act(action)
-#	print("[action]", action)
-
-        self.wrench_stamped
-        self.force = self.wrench_stamped.wrench.force
-        self.torque = self.wrench_stamped.wrench.torque
-#	print("wrench", self.wrench_stamped, type(self.wrench_stamped)) 	#<class 'geometry_msgs.msg._WrenchStamped.WrenchStamped'>
-#        print("[force]", self.force.x, self.force.y, self.force.z)
-#        print("[torque]", self.torque.x, self.torque.y, self.torque.z)
-
-        '''
-        if self.force_limit < self.force.x or self.force.x < -self.force_limit:
-        	self._act(self.previous_action)
-#        	print("force.x over the limit")
-#        	print("[previous_action]", self.previous_action)
-        elif self.force_limit < self.force.y or self.force.y < -self.force_limit:
-        	self._act(self.previous_action)
-#        	print("force.y over the limit")
-#        	print("[previous_action]", self.previous_action)
-        elif self.force_limit < self.force.z or self.force.z < -self.force_limit:
-        	self._act(self.previous_action)
-#        	print("force.z over the limit")
-#        	print("[previous_action]", self.previous_action)
-        elif self.torque_limit < self.torque.x or self.torque.x < -self.torque_limit:
-        	self._act(self.previous_action)
-#        	print("torque.x over the limit")
-#        	print("[previous_action]", self.previous_action)
-        elif self.torque_limit < self.torque.y or self.torque.y < -self.torque_limit:
-        	self._act(self.previous_action)
-#        	print("torque.y over the limit")
-#        	print("[previous_action]", self.previous_action)
-        elif self.torque_limit < self.torque.z or self.torque.z < -self.torque_limit:
-        	self._act(self.previous_action)
-#        	print("torque.z over the limit")
-#        	print("[previous_action]", self.previous_action)
+        action = action + self.arr_init_pos0
+        if self.check_cartesian_limits(action) is True:
+            self._act(action)
         else:
-        	self.previous_action = copy.deepcopy(action)
-#        	print("[action]", action)
-        '''
-    
+            print("Doesn't act")
+
         # Then we send the command to the robot and let it go for running_step seconds
         time.sleep(self.running_step)
         self._gz_conn.pauseSim()
@@ -725,7 +674,6 @@ class URSimDoorOpening(robot_gazebo_env_goal.RobotGazeboEnv):
         # with the same exact data.
         # Generate State based on observations
         observation = self.get_observations()
-#        print("[observations]", observation)
 
         # finally we get an evaluation based on what happened in the sim
         reward = self.compute_dist_rewards()
@@ -734,114 +682,10 @@ class URSimDoorOpening(robot_gazebo_env_goal.RobotGazeboEnv):
         return observation, reward, done, {}
 
     def compute_dist_rewards(self):
-        self.quat = self.door.orientation
-        self.door_rpy = self.cvt_quat_to_euler(self.quat)
-        self.quat = self.imu_link.orientation
-        self.imu_link_rpy = self.cvt_quat_to_euler(self.quat)
-        compute_rewards = 0
-
-#        self.rpy = self.cvt_quat_to_euler(Quaternion(0.0, 0.0, 0.7071, 0.7071))
-        #print ("[self.target_point]: ", [self.target_point.x, self.target_point.y, self.target_point.z])
-        #print ("(self.get_current_xyz(): ", self.get_current_xyz())
-        #end_effector_pos = np.array([self.end_effector.position.x, self.end_effector.position.y, self.end_effector.position.z])
-        #self.distance = np.linalg.norm(end_effector_pos - [self.target_point.x, self.target_point.y, self.target_point.z], axis=0)
-
-#        print ("[door]: ", [self.door.orientation.x, self.door.orientation.y, self.door.orientation.z, self.door.orientation.w])
-#        print ("[imu_link]: ", [self.imu_link.orientation.x, self.imu_link.orientation.y, self.imu_link.orientation.z, self.imu_link.orientation.w])
-#        print ("[door_rpy]: ", [self.door_rpy.x, self.door_rpy.y, self.door_rpy.z])			# [-3.141590232638843, 4.64637166410168e-06, 3.1407993185850303]
-													# => [-3.141587417428544, 6.811796590263218e-05, 2.8971100347923704]
-#        print ("[self.imu_link_rpy]: ", [self.imu_link_rpy.x, self.imu_link_rpy.y, self.imu_link_rpy.z])	# [-5.017238272290064e-06, 2.560885641286913e-07, 1.5707993173228965]
-													# => [1.2205817198134408, -4.341035340318689e-06, 1.3270298472237638]
-#        print ("[type]: ", type(self.door_rpy), type(self.end_effector.position))
-#        print ("[rpy]: ", [self.rpy.x, self.rpy.y, self.rpy.z])
-
-        '''
-        if self.force_limit < self.force.x:
-        	compute_rewards = self.imu_link_rpy.x * 1000 - (self.force.x - self.force_limit )
-#        	print("+ force.x", compute_rewards)
-        elif self.force.x < -self.force_limit:
-        	compute_rewards = self.imu_link_rpy.x * 1000 - ( -self.force_limit - self.force.x )
-#        	print("- force.x", compute_rewards)
-        elif self.force_limit < self.force.y:
-        	compute_rewards = self.imu_link_rpy.x * 1000 - (self.force.y - self.force_limit )
-#        	print("+ force.y", compute_rewards)
-        elif self.force.y < -self.force_limit :
-        	compute_rewards = self.imu_link_rpy.x * 1000 - ( -self.force_limit - self.force.y )
-#        	print("- force.y", compute_rewards)
-        elif self.force_limit < self.force.z:
-        	compute_rewards = self.imu_link_rpy.x * 1000 - (self.force.z - self.force_limit )
-#        	print("+ force.z", compute_rewards)
-        elif self.force.z < -self.force_limit:
-        	compute_rewards = self.imu_link_rpy.x * 1000 - ( -self.force_limit - self.force.z )
-#        	print("- force.z", compute_rewards)
-        elif self.torque_limit < self.torque.x:
-        	compute_rewards = self.imu_link_rpy.x * 1000 - ( self.torque.x - self.torque_limit )
-#        	print("+ torque.x", compute_rewards)
-        elif self.torque.x < -self.torque_limit:
-        	compute_rewards = self.imu_link_rpy.x * 1000 - ( -self.torque_limit - self.torque.x )
-#        	print("- torque.x", compute_rewards)
-        elif self.torque_limit < self.torque.y:
-        	compute_rewards = self.imu_link_rpy.x * 1000 - ( self.torque.y - self.torque_limit )
-#        	print("+ torque.y", compute_rewards)
-        elif self.torque.y < -self.torque_limit:
-        	compute_rewards = self.imu_link_rpy.x * 1000 - ( -self.torque_limit - self.torque.y )
-#        	print("- torque.y", compute_rewards)
-        elif self.torque_limit < self.torque.z:
-        	compute_rewards = self.imu_link_rpy.x * 1000 - ( self.torque.z - self.torque_limit )
-#        	print("+ torque.z", compute_rewards)
-        elif self.torque.z < -self.torque_limit:
-        	compute_rewards = self.imu_link_rpy.x * 1000 - ( -self.torque_limit - self.torque.z )
-#        	print("- torque.z", compute_rewards)
-        else:
-        	compute_rewards = self.imu_link_rpy.x * 1000
-        '''
-
-#        	print("not over limits", compute_rewards)
-
-#	self.counter = self.counter + 1
-
-#        if (self.counter%10) == 0:
-#                plt.figure(2)
-#        	x_data2 = []
-#        	y_data2 = []
-#        	x_data2.append(self.counter)
-#        	y_data2.append(compute_rewards)
-#                print("counter:", self.counter)
-
-#        	if self.max_rewards < compute_rewards:
-#                	self.max_rewards = compute_rewards
-
-#        	axes = plt.gca()
-#        	axes.set_xlim(0, self.counter/1000)
-#        	axes.set_ylim(0, self.max_rewards)
-#        	line2, = axes.plot(x_data2, y_data2, 'b-')
-#        	line2.set_xdata(x_data2)
-#        	line2.set_ydata(y_data2)
-#        	plt.draw()  
-#        	plt.pause(1e-17)
-#        	plt.savefig("./results/ppo_with_gae_reward.png")
-
-#        return self.imu_link_rpy.x + 1.5708061 - self.imu_link_rpy.z  # for door opening
-        compute_rewards = self.imu_link_rpy.x + 1.5708061 - self.imu_link_rpy.z
-
-        return compute_rewards  # for door opening
-
-#        return 3.134 - self.door_rpy.z  # for door opening
-#	return self.end_effector.position.z # for standup
-
-# close
-#('[door_rpy]: ', [-3.141589494723927, 5.371950050444065e-06, 3.140803800525111])
-#('[self.imu_link_rpy]: ', [-5.406752832019292e-06, 6.896590419417709e-06, 1.5708061011106662])
-
-# open
-#('[door_rpy]: ', [3.1374584007550737, -0.0018131747911100536, 2.764050391990123(delta=0.3768)])
-#('[self.imu_link_rpy]: ', [1.0934212049101757(delta=1.0934), -0.004085577221111396, 1.1941435185763472(delta=0.3768)])
+	return self.end_effector.position.z # for standup
 
     def check_done(self):
-#        if self.end_effector.position.z > 3: # for standup
-#        if 3.1408 - self.door_rpy.z > 3.14 / 180 * 10: # for door opening
-        if self.imu_link_rpy.x + 1.5708061 - self.imu_link_rpy.z > 3000: # for door opening
-#        if self.force_limit + 5 < self.force.x or self.force.x < -self.force_limit - 5 or self.force_limit + 5 < self.force.y or self.force.y < -self.force_limit - 5 or self.force_limit + 5 < self.force.z or self.force.z < -self.force_limit - 5 : # for door opening
+        if self.end_effector.position.z > 3: # for standup
             print("done")
             return True
         else :
