@@ -1,4 +1,4 @@
-# Repository for UR5 + Robotiq Demo and RL for dooropening task in Gazebo
+# Repository for UR5 + Robotiq Demo and RL for stand up task in Gazebo
 Demo code for controlling the UR5 and Robotic 2F gripper in BDML with MoveIt!
 
 ## Requirements:
@@ -67,7 +67,7 @@ cd [path/to/demo/project/root]
 catkin build
 ```
 
-## Running this code for RL standup task simulation:
+## Running this code for RL stand up task simulation:
 1. source env
 ```console 
 source [path/to/demo/project/root]/devel/setup.bash
